@@ -1,0 +1,35 @@
+package com.Ticketing.ticketing.controller;
+
+import com.Ticketing.ticketing.dto.request.LoginRequest;
+import com.Ticketing.ticketing.dto.request.RegisterRequest;
+import com.Ticketing.ticketing.dto.response.AuthResponse;
+import com.Ticketing.ticketing.service.AuthService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/auth")
+@CrossOrigin("*")
+@RequiredArgsConstructor
+public class AuthController {
+
+    private final AuthService authService;
+
+    @PostMapping("/register")
+    public ResponseEntity<AuthResponse> register(
+            @RequestBody RegisterRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                authService.register(request)
+        );
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> login(
+            @RequestBody LoginRequest request
+    ) {
+        return ResponseEntity.ok(authService.login(request));
+    }
+}
