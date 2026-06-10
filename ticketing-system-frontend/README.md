@@ -16,9 +16,11 @@
 
 Frontend:
 
-* React
+* React.js
 * Vite
 * CSS
+* React Router
+* JavaScript
 
 Backend:
 
@@ -26,6 +28,8 @@ Backend:
 * Spring Security
 * JWT
 * Hibernate
+* Spring Data JPA
+* WebSocket
 
 Database:
 
@@ -35,6 +39,13 @@ Payment:
 
 * Razorpay
 * UPI / Card / Net Banking
+  
+Other Tools:
+
+* Redis (Seat Locking)
+* Maven
+* Git & GitHub
+* Postman
 
 ## Run Backend
 
