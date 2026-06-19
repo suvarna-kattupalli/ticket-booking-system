@@ -34,9 +34,16 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/events/**",
-                                "api/bookings/**",
+                                "/api/bookings/**",
                                 "/redis-test/**",
-                                "/api/seats/**"
+                                "/api/payment/**",
+                                "/api/seats/**",
+
+
+                                // Swagger
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**"
                         ).permitAll()
 
                         .anyRequest()

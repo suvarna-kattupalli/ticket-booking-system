@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/bookings")
 @RequiredArgsConstructor
 @CrossOrigin("*")
-public class BookingController {
+public class  BookingController {
 
     private final BookingService bookingService;
     @GetMapping("/my-bookings")
@@ -29,12 +29,43 @@ public class BookingController {
                 bookingService.getMyBookings(authentication)
         );
     }
+    @GetMapping("/all")
+    public ResponseEntity<?> getAllBookings() {
+
+        return ResponseEntity.ok(
+                bookingService.getAllBookings()
+        );
+    }
+
+    @GetMapping("/count")
+    public ResponseEntity<Long> getBookingCount() {
+
+        return ResponseEntity.ok(
+                bookingService.getBookingCount()
+        );
+    }
+    @GetMapping("/ticket/{bookingId}")
+    public ResponseEntity<byte[]> downloadTicket(
+            @PathVariable Long bookingId
+    ) throws Exception {
+
+        return bookingService.generateTicket(
+                bookingId
+        );
+    }
+    @GetMapping("/revenue")
+    public ResponseEntity<Double> getRevenue() {
+
+        return ResponseEntity.ok(
+                bookingService.getRevenue()
+        );
+    }
 
     @PostMapping
     public ResponseEntity<?> bookSeat(
             @RequestBody BookingRequest request,
             Authentication authentication
-    ) {
+    ) throws Exception {
 
         System.out.println(
                 "CONTROLLER AUTH = "

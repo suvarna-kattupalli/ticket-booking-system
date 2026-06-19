@@ -14,13 +14,25 @@ import com.Ticketing.ticketing.repository.EventRepository;
 import com.Ticketing.ticketing.repository.SeatRepository;
 import com.Ticketing.ticketing.repository.UserRepository;
 import com.Ticketing.ticketing.util.SeatStatus;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
+import com.itextpdf.text.Document;
+import com.itextpdf.text.Image;
+import com.itextpdf.text.Paragraph;
+import com.itextpdf.text.pdf.PdfWriter;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -32,12 +44,13 @@ public class BookingService {
     private final SeatRepository seatRepository;
     private final UserRepository userRepository;
     private final EventRepository eventRepository;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final EmailService emailService;
+
 
     @Transactional
     public BookingResponse bookSeat(
             BookingRequest request,
-            Authentication authentication) {
+            Authentication authentication) throws Exception {
 
         if (request.getSeatId() == null) {
             throw new RuntimeException("Seat ID is missing");
@@ -94,6 +107,22 @@ public class BookingService {
                 .build();
 
         booking = bookingRepository.save(booking);
+        byte[] pdfBytes =
+                generateTicketPdf(
+                        booking
+                );
+
+        emailService.sendTicketWithPdf(
+                user.getEmail(),
+                event.getTitle(),
+                seat.getSeatNumber(),
+                pdfBytes
+        );
+        /*emailService.sendTicketEmail(
+                user.getEmail(),
+                event.getTitle(),
+                seat.getSeatNumber()
+        );*/
 
         return BookingResponse.builder()
                 .bookingId(booking.getId())
@@ -103,6 +132,51 @@ public class BookingService {
                 .paymentStatus("SUCCESS")
                 .build();
     }
+    public List<Booking> getAllBookings() {
+
+        return bookingRepository.findAll();
+    }
+
+    public Long getBookingCount() {
+
+        return bookingRepository.count();
+    }
+
+    public Double getRevenue() {
+
+        return bookingRepository.findAll()
+                .stream()
+                .mapToDouble(
+                        Booking::getAmount
+                )
+                .sum();
+    }
+    private byte[] generateQRCode(String text)
+            throws Exception {
+
+        QRCodeWriter qrCodeWriter =
+                new QRCodeWriter();
+
+        BitMatrix bitMatrix =
+                qrCodeWriter.encode(
+                        text,
+                        BarcodeFormat.QR_CODE,
+                        200,
+                        200
+                );
+
+        ByteArrayOutputStream pngOutput =
+                new ByteArrayOutputStream();
+
+        MatrixToImageWriter.writeToStream(
+                bitMatrix,
+                "PNG",
+                pngOutput
+        );
+
+        return pngOutput.toByteArray();
+    }
+    
 
     public List<BookingResponse> getMyBookings(
             Authentication authentication) {
@@ -141,4 +215,204 @@ public class BookingService {
                 )
                 .toList();
     }
-}
+    public ResponseEntity<byte[]> generateTicket(Long bookingId) throws Exception {
+
+            Booking booking =
+                    bookingRepository
+                            .findById(bookingId)
+                            .orElseThrow();
+        String qrData =
+                "Booking ID: "
+                        + booking.getId()
+                        + "\nEvent: "
+                        + booking.getEvent().getTitle()
+                        + "\nSeat: "
+                        + booking.getSeat().getSeatNumber();
+
+            ByteArrayOutputStream output =
+                    new ByteArrayOutputStream();
+
+            Document document =
+                    new Document();
+
+            PdfWriter.getInstance(
+                    document,
+                    output
+            );
+
+            document.open();
+
+        document.add(
+                new Paragraph(
+                        "=================================="
+                )
+        );
+
+        document.add(
+                new Paragraph(
+                        "EVENT TICKET"
+                )
+        );
+
+        document.add(
+                new Paragraph(
+                        "=================================="
+                )
+        );
+
+            document.add(
+                    new Paragraph(
+                            "Event: "
+                                    + booking.getEvent().getTitle()
+                    )
+            );
+
+            document.add(
+                    new Paragraph(
+                            "Seat: "
+                                    + booking.getSeat().getSeatNumber()
+                    )
+            );
+
+            document.add(
+                    new Paragraph(
+                            "Amount: ₹"
+                                    + booking.getAmount()
+                    )
+            );
+
+            document.add(
+                    new Paragraph(
+                            "Booking ID: "
+                                    + booking.getId()
+                    )
+            );
+        document.add(
+                new Paragraph(
+                        "\nPayment Status: "
+                                + booking.getPaymentStatus()
+                )
+        );
+
+        document.add(
+                new Paragraph(
+                        "Booking Time: "
+                                + booking.getBookingTime()
+                )
+        );
+        document.add(
+                new Paragraph(
+                        "\nQR DATA:\n"
+                                + qrData
+                )
+        );
+        byte[] qrBytes =
+                generateQRCode(qrData);
+
+        Image qrImage =
+                Image.getInstance(qrBytes);
+
+        qrImage.scaleToFit(
+                150,
+                150
+        );
+
+        document.add(qrImage);
+
+
+            document.close();
+
+            HttpHeaders headers =
+                    new HttpHeaders();
+
+            headers.add(
+                    "Content-Disposition",
+                    "attachment; filename=ticket.pdf"
+            );
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentType(
+                            MediaType.APPLICATION_PDF
+                    )
+                    .body(
+                            output.toByteArray()
+                    );
+
+        }
+    private byte[] generateTicketPdf(
+            Booking booking
+    ) throws Exception {
+
+        ByteArrayOutputStream output =
+                new ByteArrayOutputStream();
+
+        Document document =
+                new Document();
+
+        PdfWriter.getInstance(
+                document,
+                output
+        );
+
+        document.open();
+
+        document.add(
+                new Paragraph(
+                        "=================================="
+                )
+        );
+
+        document.add(
+                new Paragraph(
+                        "EVENT TICKET"
+                )
+        );
+
+        document.add(
+                new Paragraph(
+                        "=================================="
+                )
+        );
+        document.add(
+                new Paragraph(
+                        "Event: "
+                                + booking.getEvent().getTitle()
+                )
+        );
+
+        document.add(
+                new Paragraph(
+                        "Seat: "
+                                + booking.getSeat().getSeatNumber()
+                )
+        );
+        document.add(
+                new Paragraph(
+                        "Amount: ₹"
+                                + booking.getAmount()
+                )
+        );
+        document.add(
+                new Paragraph(
+                        "\nPayment Status: "
+                                + booking.getPaymentStatus()
+                )
+        );
+
+        document.add(
+                new Paragraph(
+                        "Booking Time: "
+                                + booking.getBookingTime()
+                )
+        );
+
+
+        document.close();
+
+        return output.toByteArray();
+    }
+
+
+    }
+
